@@ -92,9 +92,8 @@ function getText() {
 
 function run() {
   authenticate(()=>{
-    postBroadcast('test ')
+    postBroadcast('大笨钟来啦！ ')
   });
-  // postBroadcast('大笨钟来啦！ ')
   
   ns.scheduleJob('0 * * * *', () => {
     postBroadcast(getText())
