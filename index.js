@@ -81,7 +81,7 @@ function getText() {
   const yearEnd = mt(yearStart).add(1, 'year');
   const progress = Math.round(100000 * now.diff(yearStart) / yearEnd.diff(yearStart)) / 1000;
   // console.log('p', process)
-  const hour = + now.format('HH')
+  let hour = + now.format('HH')
   if (hour === 0) {
     hour = 24
   }
@@ -92,7 +92,8 @@ function getText() {
 
 function run() {
   authenticate(()=>{
-    postBroadcast('大笨钟来啦！ ')
+    // postBroadcast('大笨钟来啦！ ')
+    postBroadcast('呀！出问题了 >< ')
   });
   
   ns.scheduleJob('0 * * * *', () => {
