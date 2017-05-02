@@ -66,6 +66,7 @@ function postBroadcast(text) {
         case 106: // ACCESS_TOKEN_HAS_EXPIRED
         case 119: // INVALID_REFRESH_TOKEN
         case 123: // ACCESS_TOKEN_HAS_EXPIRED_SINCE_PASSWORD_CHANGED
+          console.log('re posting...')
           authenticate(() => postBroadcast(text));
       }
     } else {
@@ -92,12 +93,19 @@ function getText() {
 
 function run() {
   authenticate(()=>{
-    postBroadcast('更新了，但愿没 bug ><')
+    postBroadcast('开工啦')
   });
-  let i=0
+  let i=0;
   ns.scheduleJob('0 * * * *', () => {
-    console.log(new Date(), 'posting');
+    i++;
+    console.log(new Date(), 'posting hour', i);
+    console.log('text',getText())
     postBroadcast(getText())
+  })
+  ns.scheduleJob('30 */10 * * * *', () => {
+    i++;
+    console.log(new Date(), 'posting min', i);
+    // postBroadcast('test '+i)
   })
 }
 
