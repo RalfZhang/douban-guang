@@ -12,6 +12,7 @@
     "request-promise": "^4.2.0"
   },
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "node a.js"
   }
 }
