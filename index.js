@@ -102,6 +102,8 @@ function run() {
     console.log('text',getText())
     postBroadcast(getText())
   })
+
+  // screen detach 无任务 1 小时候后不执行 schedule，添加每十分钟唤醒
   ns.scheduleJob('30 */10 * * * *', () => {
     i++;
     console.log(new Date(), 'posting min', i);
