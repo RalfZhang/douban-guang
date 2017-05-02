@@ -57,10 +57,10 @@ function postBroadcast(text) {
     },
     json: true,
   }).then(res => {
-    console.log('postBroadcast Success')
+    console.log(new Date(), 'postBroadcast Success')
   }).catch(err => {
     if (err && err.error) {
-      console.error('postBroadcast ERR. Code: ', err.error.code)
+      console.error(new Date(), 'postBroadcast ERR. Code: ', err.error.code)
       switch (err.error.code) {
         case 103: // INVALID_ACCESS_TOKEN
         case 106: // ACCESS_TOKEN_HAS_EXPIRED
@@ -69,7 +69,7 @@ function postBroadcast(text) {
           authenticate(() => postBroadcast(text));
       }
     } else {
-      console.error('postBroadcast ERR: ', err)
+      console.error(new Date(), 'postBroadcast ERR: ', err)
     }
   })
 }
@@ -86,17 +86,17 @@ function getText() {
     hour = 24
   }
   const year = now.format('YYYY')
-  let text = '咣！'.repeat(hour) + `豆瓣大笨钟提醒你：北京时间${hour}点整，${year}年已悄悄溜走${progress}%`
+  let text = '咣！'.repeat(hour) + `豆瓣大笨钟提醒您：北京时间${hour}点整，${year}年已悄悄溜走${progress}%。`
   return text;
 }
 
 function run() {
   authenticate(()=>{
-    // postBroadcast('大笨钟来啦！ ')
-    postBroadcast('呀！出问题了 >< ')
+    postBroadcast('更新了，但愿没 bug ><')
   });
-  
+  let i=0
   ns.scheduleJob('0 * * * *', () => {
+    console.log(new Date(), 'posting');
     postBroadcast(getText())
   })
 }
