@@ -57,10 +57,11 @@ function postBroadcast(text) {
     },
     json: true,
   }).then(res => {
-    console.log(new Date(), 'postBroadcast Success')
+    console.log('----> ', new Date(), 'postBroadcast Success')
   }).catch(err => {
     if (err && err.error) {
-      console.error(new Date(), 'postBroadcast ERR. Code: ', err.error.code)
+      console.log('----> ', new Date(), 'postBroadcast ERR. Code: ', err.error.code)
+      console.log('Err msg: ', JSON.stringify(err))
       switch (err.error.code) {
         case 103: // INVALID_ACCESS_TOKEN
         case 106: // ACCESS_TOKEN_HAS_EXPIRED
@@ -70,7 +71,8 @@ function postBroadcast(text) {
           authenticate(() => postBroadcast(text));
       }
     } else {
-      console.error(new Date(), 'postBroadcast ERR: ', err)
+      console.log('----> ', new Date(), 'postBroadcast ERR: ', err)
+      console.log('Err msg: ', JSON.stringify(err))
     }
   })
 }
@@ -93,7 +95,7 @@ function getText() {
 
 function run() {
   authenticate(()=>{
-    postBroadcast('开工啦')
+    // postBroadcast('开工啦')
   });
   let i=0;
   ns.scheduleJob('0 * * * *', () => {
