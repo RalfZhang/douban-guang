@@ -43,38 +43,54 @@ function authenticate(callback) {
   })
 }
 
+
+
 function postBroadcast(text) {
-  rp.post({
-    url: 'https://api.douban.com/v2/lifestream/statuses',
-    encoding: 'utf8',
-    headers: {
-      'User-Agent': userAgent,
-      'Authorization': `Bearer ${token}`
-    },
-    form: {
-      version: 2,
-      text: text,
-    },
-    json: true,
-  }).then(res => {
-    console.log('----> ', new Date(), 'postBroadcast Success')
-  }).catch(err => {
-    if (err && err.error) {
-      console.log('----> ', new Date(), 'postBroadcast ERR. Code: ', err.error.code)
-      console.log('Err msg: ', JSON.stringify(err))
-      switch (err.error.code) {
-        case 103: // INVALID_ACCESS_TOKEN
-        case 106: // ACCESS_TOKEN_HAS_EXPIRED
-        case 119: // INVALID_REFRESH_TOKEN
-        case 123: // ACCESS_TOKEN_HAS_EXPIRED_SINCE_PASSWORD_CHANGED
-          console.log('re posting...')
-          authenticate(() => postBroadcast(text));
+  let i=0;
+  let tryPost=function(){
+    rp.post({
+      url: 'https://api.douban.com/v2/lifestream/statuses',
+      encoding: 'utf8',
+      headers: {
+        'User-Agent': userAgent,
+        'Authorization': `Bearer ${token}`
+      },
+      form: {
+        version: 2,
+        text: text,
+      },
+      json: true,
+      timeout: 10000,
+    }).then(res => {
+      console.log('----> \n', new Date(), 'postBroadcast Success')
+    }).catch(err => {
+      if (err && err.error) {
+        console.log('----> \n', new Date(), 'postBroadcast ERR. Code: ', err.error.code)
+        console.log('Err msg: ', JSON.stringify(err))
+        switch (err.error.code) {
+          case 103: // INVALID_ACCESS_TOKEN
+          case 106: // ACCESS_TOKEN_HAS_EXPIRED
+          case 119: // INVALID_REFRESH_TOKEN
+          case 123: // ACCESS_TOKEN_HAS_EXPIRED_SINCE_PASSWORD_CHANGED
+            console.log('re posting...')
+            authenticate(() => postBroadcast(text));
+            break;
+          case 'ETIMEDOUT': 
+            if(i<5){
+              i++;
+              tryPost();
+            }else{
+              console.log(new Date(), 'ERR, posting try more than 5 times')
+            }
+            break;
+        }
+      } else {
+        console.log('----> \n', new Date(), 'postBroadcast ERR: ', err)
+        console.log('Err msg: ', JSON.stringify(err))
       }
-    } else {
-      console.log('----> ', new Date(), 'postBroadcast ERR: ', err)
-      console.log('Err msg: ', JSON.stringify(err))
-    }
-  })
+    })
+  }
+  tryPost();
 }
 
 
