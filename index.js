@@ -46,8 +46,8 @@ function authenticate(callback) {
 
 
 function postBroadcast(text) {
-  let i=0;
-  let tryPost=function(){
+  let i = 0;
+  let tryPost = function () {
     rp.post({
       url: 'https://api.douban.com/v2/lifestream/statuses',
       encoding: 'utf8',
@@ -75,11 +75,11 @@ function postBroadcast(text) {
             console.log('re posting...')
             authenticate(() => postBroadcast(text));
             break;
-          case 'ETIMEDOUT': 
-            if(i<5){
+          case 'ETIMEDOUT':
+            if (i < 5) {
               i++;
               tryPost();
-            }else{
+            } else {
               console.log(new Date(), 'ERR, posting try more than 5 times')
             }
             break;
@@ -98,26 +98,30 @@ function getText() {
   const now = mt().tz('Asia/Shanghai')
   const yearStart = mt(now).startOf('year');
   const yearEnd = mt(yearStart).add(1, 'year');
-  const progress = Math.round(100000 * now.diff(yearStart) / yearEnd.diff(yearStart)) / 1000;
+  let progress = Math.round(100000 * now.diff(yearStart) / yearEnd.diff(yearStart)) / 1000;
   // console.log('p', process)
   let hour = + now.format('HH')
   if (hour === 0) {
     hour = 24
   }
-  const year = now.format('YYYY')
+  let year = now.format('YYYY');
+  if (progress === 0) { // 处理新年结束
+    year = year - 1;
+    progress = 100;
+  }
   let text = '咣！'.repeat(hour) + `豆瓣大笨钟提醒您：北京时间${hour}点整，${year}年已悄悄溜走${progress}%。`
   return text;
 }
 
 function run() {
-  authenticate(()=>{
-    // postBroadcast('开工啦')
+  authenticate(() => {
+    postBroadcast('重启成功！')
   });
-  let i=0;
+  let i = 0;
   ns.scheduleJob('0 * * * *', () => {
     i++;
     console.log(new Date(), 'posting hour', i);
-    console.log('text',getText())
+    console.log('text', getText())
     postBroadcast(getText())
   })
 
@@ -125,7 +129,6 @@ function run() {
   ns.scheduleJob('30 */10 * * * *', () => {
     i++;
     console.log(new Date(), 'posting min', i);
-    // postBroadcast('test '+i)
   })
 }
 
