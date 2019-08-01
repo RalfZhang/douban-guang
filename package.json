@@ -6,10 +6,12 @@
   "author": "RalfZ",
   "license": "MIT",
   "dependencies": {
+    "crypto": "^1.0.1",
     "moment-timezone": "^0.5.13",
     "node-schedule": "^1.2.1",
     "request": "^2.81.0",
-    "request-promise": "^4.2.0"
+    "request-promise": "^4.2.0",
+    "url": "^0.11.0"
   },
   "scripts": {
     "start": "node index.js",

@@ -4,34 +4,80 @@
  * @date    2017-05-01 17:39:51
  * @version 1.0.0
  */
-const rp = require('request-promise')
-const ns = require('node-schedule')
-const mt = require('moment-timezone')
+const rp = require('request-promise');
+const ns = require('node-schedule');
+const mt = require('moment-timezone');
+const URL = require('url');
+const crypto = require('crypto');
 
-const config = require('./config.js')
+const config = require('./config.js');
 
 let token = null;
-const userAgent = `api-client/2.0 com.douban.shuo/${config.device}`;
+
+const FrodoRequest = rp.defaults(p => {
+  const params = {
+    headers: {},
+    ...p,
+    encoding: 'utf8',
+  };
+  params.headers['User-Agent'] = config.ua;
+
+  const path = new URL(params.url).pathname;
+  if (path !== '/service/auth2/token') {
+    params.headers.Authorization = `Bearer ${token}`;
+  }
+
+  let signature = params.method;
+  signature += `&${encodeURIComponent(decodeURIComponent(path).replace(/\/$/, ''))}`;
+  if (params.headers.Authorization) {
+    signature += `&${params.headers.Authorization.substring(7)}`;
+  }
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  signature += `&${timestamp}`;
+  signature = crypto.createHmac('sha1', config.api.secret).update(signature).digest('base64');
+  switch (params.method) {
+    case "PATCH":
+    case "POST":
+    case "PROPPATCH":
+    case "PUT":
+    case "REPORT":
+      if (params.formData) {
+        params.formData._sig = signature;
+        params.formData._ts = timestamp;
+      } else {
+        params.form = {
+          ...params.form,
+          _sig: signature,
+          _ts: timestamp,
+        };
+      }
+      break;
+    default: {
+      const url = new URL(params.url);
+      url.searchParams.append('_sig', signature);
+      url.searchParams.append('_ts', timestamp);
+      params.url = url.href;
+    }
+  }
+
+  return Request(params);
+})
 
 function authenticate(callback) {
-  rp.post({
-    url: 'https://www.douban.com/service/auth2/token',
-    encoding: 'utf8',
-    headers: {
-      'User-Agent': userAgent
-    },
+  FrodoRequest.post({
+    url: 'https://frodo.douban.com/service/auth2/token',
     form: {
       client_id: config.api.key,
       client_secret: config.api.secret,
-      redirect_uri: 'http://shuo.douban.com/!service/android',
+      redirect_uri: 'frodo://app/oauth/callback/',
       grant_type: 'password',
       username: config.username,
       password: config.password
     },
-    json: true
+    json: true,
   }).then((res) => {
     if (!res.access_token) {
-      console.error('token error. ', res)
+      console.error('token error. ', res);
       return;
     }
     token = res.access_token;
@@ -39,7 +85,7 @@ function authenticate(callback) {
       callback();
     }
   }).catch(err => {
-    console.log('Auth Error: ', err.error.code, err)
+    console.log('Auth Error: ', err.error.code, err);
   })
 }
 
@@ -48,15 +94,9 @@ function authenticate(callback) {
 function postBroadcast(text) {
   let i = 0;
   let tryPost = function () {
-    rp.post({
-      url: 'https://api.douban.com/v2/lifestream/statuses',
-      encoding: 'utf8',
-      headers: {
-        'User-Agent': userAgent,
-        'Authorization': `Bearer ${token}`
-      },
+    FrodoRequest.post({
+      url: 'https://frodo.douban.com/api/v2/status/create_status',
       form: {
-        version: 2,
         text: text,
       },
       json: true,
@@ -65,14 +105,14 @@ function postBroadcast(text) {
       console.log('----> \n', new Date(), 'postBroadcast Success')
     }).catch(err => {
       if (err && err.error) {
-        console.log('----> \n', new Date(), 'postBroadcast ERR. Code: ', err.error.code)
-        console.log('Err msg: ', JSON.stringify(err))
+        console.log('----> \n', new Date(), 'postBroadcast ERR. Code: ', err.error.code);
+        console.log('Err msg: ', JSON.stringify(err));
         switch (err.error.code) {
           case 103: // INVALID_ACCESS_TOKEN
           case 106: // ACCESS_TOKEN_HAS_EXPIRED
           case 119: // INVALID_REFRESH_TOKEN
           case 123: // ACCESS_TOKEN_HAS_EXPIRED_SINCE_PASSWORD_CHANGED
-            console.log('re posting...')
+            console.log('re posting...');
             authenticate(() => postBroadcast(text));
             break;
           case 'ETIMEDOUT':
@@ -80,13 +120,13 @@ function postBroadcast(text) {
               i++;
               tryPost();
             } else {
-              console.log(new Date(), 'ERR, posting try more than 5 times')
+              console.log(new Date(), 'ERR, posting try more than 5 times');
             }
             break;
         }
       } else {
-        console.log('----> \n', new Date(), 'postBroadcast ERR: ', err)
-        console.log('Err msg: ', JSON.stringify(err))
+        console.log('----> \n', new Date(), 'postBroadcast ERR: ', err);
+        console.log('Err msg: ', JSON.stringify(err));
       }
     })
   }
@@ -100,7 +140,7 @@ function getText() {
   const yearEnd = mt(yearStart).add(1, 'year');
   let progress = Math.round(100000 * now.diff(yearStart) / yearEnd.diff(yearStart)) / 1000;
   // console.log('p', process)
-  let hour = + now.format('HH')
+  let hour = +now.format('HH')
   if (hour === 0) {
     hour = 24
   }
@@ -115,7 +155,7 @@ function getText() {
 
 function run() {
   authenticate(() => {
-    postBroadcast('重启成功！')
+    postBroadcast('尝试重启中……')
   });
   let i = 0;
   ns.scheduleJob('0 * * * *', () => {
