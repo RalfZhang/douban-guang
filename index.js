@@ -7,7 +7,7 @@
 const rp = require('request-promise');
 const ns = require('node-schedule');
 const mt = require('moment-timezone');
-const URL = require('url');
+const URL = require('url').URL;
 const crypto = require('crypto');
 
 const config = require('./config.js');
@@ -60,7 +60,7 @@ const FrodoRequest = rp.defaults(p => {
     }
   }
 
-  return Request(params);
+  return rp(params);
 })
 
 function authenticate(callback) {
