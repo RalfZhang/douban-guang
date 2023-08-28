@@ -6,11 +6,6 @@
  */
 
 module.exports = {
-  api: {
-    key: '',
-    secret: '',
-  },
-  device: '',
-  username: '',
-  password: ''
+  headers: {},
+  dataString: 'comment=11&',
 }
