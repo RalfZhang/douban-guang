@@ -57,7 +57,7 @@ function getText() {
 }
 
 function run() {
-  postBroadcast('尝试重启中，故障率应该很高，别抱太大希望……');
+  postBroadcast('尝试重启中……');
   let i = 0;
   ns.scheduleJob('0 * * * *', () => {
     i++;
