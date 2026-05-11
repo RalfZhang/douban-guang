@@ -2,56 +2,48 @@
  * 大笨钟
  * @authors RalfZ (ralfz.zhang@gmail.com)
  */
-'use strict';
+import crypto from 'node:crypto';
+import ns from 'node-schedule';
+import mt from 'moment-timezone';
 
-const crypto = require('crypto');
-const rp = require('request-promise');
-const ns = require('node-schedule');
-const mt = require('moment-timezone');
-
-const config = require('./config.js');
+import config from './config.js';
 
 let accessToken = null;
 
-const FrodoRequest = rp.defaults(params => {
-  params.encoding = 'utf8';
-  if (!params.headers) params.headers = {};
+async function frodoRequest({ url, method = 'GET', form }) {
+  method = method.toUpperCase();
+  const u = new URL(url);
+  const path = u.pathname;
 
-  const path = new URL(params.url).pathname;
-  if (path !== '/service/auth2/token' && accessToken) {
-    params.headers.Authorization = `Bearer ${accessToken}`;
-  }
-
-  const addParam = (name, value) => {
-    const m = (params.method || 'GET').toUpperCase();
-    if (['PATCH', 'POST', 'PUT'].includes(m)) {
-      if (params.formData) {
-        params.formData[name] = value;
-      } else {
-        if (!params.form) params.form = {};
-        params.form[name] = value;
-      }
-    } else {
-      if (!params.qs) params.qs = {};
-      params.qs[name] = value;
-    }
+  const headers = {
+    'User-Agent':
+      `api-client/1 com.douban.frodo/7.13.0(223) Android/${config.api.device.sdkInt}` +
+      ` product/${config.api.device.product} vendor/${config.api.device.manufacturer}` +
+      ` model/${config.api.device.model}  rom/android  network/wifi` +
+      `  udid/${config.api.device.id}  platform/mobile`,
   };
 
-  params.headers['User-Agent'] =
-    `api-client/1 com.douban.frodo/7.13.0(223) Android/${config.api.device.sdkInt}` +
-    ` product/${config.api.device.product} vendor/${config.api.device.manufacturer}` +
-    ` model/${config.api.device.model}  rom/android  network/wifi` +
-    `  udid/${config.api.device.id}  platform/mobile`;
+  if (path !== '/service/auth2/token' && accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  const isWrite = ['PATCH', 'POST', 'PUT'].includes(method);
+  const body = isWrite ? new URLSearchParams(form || {}) : null;
+
+  const addParam = (name, value) => {
+    if (isWrite) body.set(name, value);
+    else u.searchParams.set(name, value);
+  };
 
   addParam('udid', config.api.device.id);
   addParam('apikey', config.api.key);
   addParam('os_rom', 'android');
   addParam('channel', 'Douban');
 
-  let signature = (params.method || 'GET').toUpperCase();
+  let signature = method;
   signature += `&${encodeURIComponent(decodeURIComponent(path).replace(/\/$/, ''))}`;
-  if (params.headers.Authorization) {
-    signature += `&${params.headers.Authorization.substring(7)}`;
+  if (headers.Authorization) {
+    signature += `&${headers.Authorization.substring(7)}`;
   }
   const timestamp = Math.floor(Date.now() / 1000).toString();
   signature += `&${timestamp}`;
@@ -59,12 +51,30 @@ const FrodoRequest = rp.defaults(params => {
   addParam('_sig', sig);
   addParam('_ts', timestamp);
 
-  return rp(params);
-});
+  const init = { method, headers };
+  if (isWrite) {
+    init.body = body.toString();
+    headers['Content-Type'] = 'application/x-www-form-urlencoded';
+  }
+
+  const res = await fetch(u.toString(), init);
+  const text = await res.text();
+  let parsed = text;
+  try { parsed = JSON.parse(text); } catch { /* not JSON */ }
+
+  if (!res.ok) {
+    const err = new Error(`HTTP ${res.status}`);
+    err.statusCode = res.status;
+    err.body = parsed;
+    throw err;
+  }
+  return parsed;
+}
 
 async function authenticate() {
-  const body = await FrodoRequest.post({
+  const body = await frodoRequest({
     url: 'https://frodo.douban.com/service/auth2/token',
+    method: 'POST',
     form: {
       client_id: config.api.key,
       client_secret: config.api.secret,
@@ -72,9 +82,8 @@ async function authenticate() {
       disable_account_create: 'false',
       grant_type: 'password',
       username: config.username,
-      password: config.password
+      password: config.password,
     },
-    json: true
   });
   if (!body.access_token) throw body;
   accessToken = body.access_token;
@@ -83,21 +92,21 @@ async function authenticate() {
 
 async function sendBroadcast(text) {
   try {
-    const body = await FrodoRequest.post({
+    const body = await frodoRequest({
       url: 'https://frodo.douban.com/api/v2/status/create_status',
+      method: 'POST',
       form: { text },
-      json: true
     });
     console.log('---->', new Date(), 'broadcast OK, id', body && body.id);
   } catch (err) {
-    const code = err && err.response && err.response.body && err.response.body.code;
+    const code = err.body && err.body.code;
     // 103 invalid token, 106 expired, 119 invalid refresh, 123 expired since password change
     if ([103, 106, 119, 123].includes(code)) {
       console.log('---->', new Date(), 'token invalid (code', code + '), re-authenticating');
       await authenticate();
       return sendBroadcast(text);
     }
-    console.log('----> broadcast failed:', (err && err.response && err.response.body) || err.message);
+    console.log('----> broadcast failed:', err.body || err.message);
     throw err;
   }
 }
@@ -122,21 +131,17 @@ async function postHourly() {
   console.log('>', new Date(), 'posting:', text);
   try {
     await sendBroadcast(text);
-  } catch (e) {
+  } catch {
     console.log('----> catch event.');
   }
 }
 
-async function run() {
-  await authenticate();
-  await sendBroadcast('尝试重启中……').catch(() => console.log('----> startup broadcast failed'));
+await authenticate();
+await sendBroadcast('尝试重启中……').catch(() => console.log('----> startup broadcast failed'));
 
-  ns.scheduleJob('0 * * * *', postHourly);
+ns.scheduleJob('0 * * * *', postHourly);
 
-  // screen detach 无任务 1 小时后不执行 schedule，添加每十分钟唤醒
-  ns.scheduleJob('30 */10 * * * *', () => {
-    console.log(new Date(), 'wakeup tick');
-  });
-}
-
-run();
+// screen detach 无任务 1 小时后不执行 schedule，添加每十分钟唤醒
+ns.scheduleJob('30 */10 * * * *', () => {
+  console.log(new Date(), 'wakeup tick');
+});

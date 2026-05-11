@@ -1,18 +1,19 @@
 {
   "name": "douban-guang",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "豆瓣大笨钟",
   "main": "index.js",
+  "type": "module",
   "author": "RalfZ",
   "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
-    "moment-timezone": "^0.5.35",
-    "node-schedule": "^1.2.1",
-    "request": "^2.81.0",
-    "request-promise": "^4.2.0"
+    "moment-timezone": "^0.5.45",
+    "node-schedule": "^2.1.1"
   },
   "scripts": {
-    "start": "node index.js",
-    "test": "node a.js"
+    "start": "node index.js"
   }
 }

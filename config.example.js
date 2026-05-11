@@ -1,8 +1,4 @@
-/**
- * Config
- */
-
-module.exports = {
+export default {
   api: {
     key: '',
     secret: '',
