@@ -6,11 +6,9 @@
 
 https://www.douban.com/people/160931760/
 
-
-
 ## 致谢
 - http://page.renren.com/renren_big_ben
 - https://github.com/DreaminginCodeZH/DoubanYearProgress
 
-## License  
+## License
 MIT
