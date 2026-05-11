@@ -1,0 +1,20 @@
+FROM node:24-alpine
+
+# 装时区数据，让容器内日志时间是北京时间
+# （业务逻辑本来就用 moment-timezone 强制 Shanghai，不影响功能，只是日志好看）
+RUN apk add --no-cache tzdata && \
+    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone
+ENV TZ=Asia/Shanghai
+
+WORKDIR /app
+
+# 先拷依赖清单，利用 docker layer cache：lockfile 没变就跳过 npm ci
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+# 只拷代码本身。config.js 不进镜像，运行时挂载
+COPY index.js ./
+
+USER node
+CMD ["node", "index.js"]

@@ -1,0 +1,7 @@
+services:
+  douban-guang:
+    build: .
+    container_name: douban-guang
+    restart: unless-stopped
+    volumes:
+      - ./config.js:/app/config.js:ro

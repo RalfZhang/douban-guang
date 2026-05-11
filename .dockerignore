@@ -1,0 +1,12 @@
+node_modules
+.git
+.gitignore
+*.md
+config.js
+config.example.js
+douban-guang.service
+Dockerfile
+compose.yaml
+.dockerignore
+.DS_Store
+yarn.lock
