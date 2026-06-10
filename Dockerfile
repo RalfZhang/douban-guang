@@ -14,7 +14,12 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 # 只拷代码本身。config.js 不进镜像，运行时挂载
-COPY index.js ./
+COPY index.js healthcheck.js ./
 
 USER node
+
+# 心跳超过 15 分钟没更新就判定不健康（配合 compose 的 restart 策略）
+HEALTHCHECK --interval=5m --timeout=10s --start-period=30s --retries=2 \
+    CMD ["node", "healthcheck.js"]
+
 CMD ["node", "index.js"]

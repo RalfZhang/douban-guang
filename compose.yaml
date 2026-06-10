@@ -3,5 +3,15 @@ services:
     build: .
     container_name: douban-guang
     restart: unless-stopped
+    environment:
+      # debug < info < warn < error，排查问题时改成 debug 看每个请求的耗时/状态
+      - LOG_LEVEL=info
     volumes:
+      # config.js 不进镜像，运行时只读挂载；改完跑 docker compose restart 即可
       - ./config.js:/app/config.js:ro
+    # 限制日志大小，避免长期运行把磁盘写满（默认 docker 日志无上限）
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
