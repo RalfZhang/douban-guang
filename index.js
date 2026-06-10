@@ -51,7 +51,7 @@ async function frodoRequest({ url, method = 'GET', form }) {
   addParam('_sig', sig);
   addParam('_ts', timestamp);
 
-  const init = { method, headers };
+  const init = { method, headers, signal: AbortSignal.timeout(15000) };
   if (isWrite) {
     init.body = body.toString();
     headers['Content-Type'] = 'application/x-www-form-urlencoded';
@@ -106,7 +106,7 @@ async function sendBroadcast(text) {
       await authenticate();
       return sendBroadcast(text);
     }
-    console.log('----> broadcast failed:', err.body || err.message);
+    console.log('----> broadcast failed:', err.body || err.message, err.cause ? `(cause: ${err.cause.code || err.cause.message || err.cause})` : '');
     throw err;
   }
 }
