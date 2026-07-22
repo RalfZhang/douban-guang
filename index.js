@@ -65,11 +65,13 @@ async function frodoRequest({ url, method = 'GET', form }) {
   const path = u.pathname;
 
   const headers = {
+    // 对齐真机抓包的 UA：带 udid + douban_udid，字段顺序也一致
     'User-Agent':
-      `api-client/1 com.douban.frodo/7.13.0(223) Android/${config.api.device.sdkInt}` +
-      ` product/${config.api.device.product} vendor/${config.api.device.manufacturer}` +
-      ` model/${config.api.device.model}  rom/android  network/wifi` +
-      `  udid/${config.api.device.id}  platform/mobile`,
+      `api-client/1 com.douban.frodo/7.130.0.beta2(357) Android/${config.api.device.sdkInt}` +
+      `  udid/${config.api.device.id}  douban_udid/${config.api.device.doubanId}` +
+      ` model/${config.api.device.model} brand/${config.api.device.manufacturer.toLowerCase()}` +
+      `  rom/android  network/wifi  platform/mobile  foldable/0 nd/1` +
+      ` product/${config.api.device.product} vendor/${config.api.device.manufacturer}`,
   };
 
   if (path !== '/service/auth2/token' && accessToken) {
@@ -79,15 +81,17 @@ async function frodoRequest({ url, method = 'GET', form }) {
   const isWrite = ['PATCH', 'POST', 'PUT'].includes(method);
   const body = isWrite ? new URLSearchParams(form || {}) : null;
 
+  // 对齐真机：写请求把公共/鉴权参数放 body，读请求放 query
   const addParam = (name, value) => {
     if (isWrite) body.set(name, value);
     else u.searchParams.set(name, value);
   };
 
   addParam('udid', config.api.device.id);
+  addParam('douban_udid', config.api.device.doubanId);   // 新版必带（抓包发现）
   addParam('apikey', config.api.key);
   addParam('os_rom', 'android');
-  addParam('channel', 'Douban');
+  addParam('channel', 'douban');   // 真机是小写 douban，不是 Douban
 
   let signature = method;
   signature += `&${encodeURIComponent(decodeURIComponent(path).replace(/\/$/, ''))}`;
@@ -124,6 +128,20 @@ async function frodoRequest({ url, method = 'GET', form }) {
   return parsed;
 }
 
+async function registerDevice() {
+  // 真机启动时会先注册设备（device_id + douban_udid），再登录
+  try {
+    await frodoRequest({
+      url: 'https://frodo.douban.com/api/v2/register_device',
+      method: 'POST',
+      form: { device_id: config.api.device.id },
+    });
+    log.info('device registered');
+  } catch (err) {
+    log.warn(`register_device failed (continuing): ${describeError(err)}`);
+  }
+}
+
 async function authenticate() {
   const body = await frodoRequest({
     url: 'https://frodo.douban.com/service/auth2/token',
@@ -143,13 +161,40 @@ async function authenticate() {
   log.info(`authenticated as ${body.douban_user_name || body.douban_user_id}`);
 }
 
+// 新版豆瓣发广播用 /api/v2/topic/post（旧的 status/create_status 已废弃，返回 999）。
+// 正文是 Draft.js 结构的 content JSON。
+function buildContent(text) {
+  return JSON.stringify({
+    blocks: [{
+      data: { align: 'left' },
+      depth: 0,
+      entityRanges: [],
+      inlineStyleRanges: [],
+      key: '',
+      text,
+      type: 'unstyled',
+    }],
+    entityMap: {},
+  });
+}
+
 async function sendBroadcast(text, retried = false) {
   const started = Date.now();
   try {
     const body = await frodoRequest({
-      url: 'https://frodo.douban.com/api/v2/status/create_status',
+      url: 'https://frodo.douban.com/api/v2/topic/post',
       method: 'POST',
-      form: { text },
+      form: {
+        title: '',
+        content: buildContent(text),
+        original: '0',
+        accessible: 'public',
+        reply_limit: 'A',
+        group_id: '0',
+        send_status: '0',
+        enable_photo_watermark: 'false',
+        video_is_aigc: '0',
+      },
     });
     log.info(`broadcast OK (id=${body && body.id}, ${Date.now() - started}ms)`);
   } catch (err) {
@@ -203,6 +248,7 @@ process.on('uncaughtException', (err) => {
 log.info(`大笨钟 starting (node ${process.version}, log level ${process.env.LOG_LEVEL || 'info'})`);
 beat();
 
+await registerDevice();
 await authenticate();
 await sendBroadcast('尝试重启中……').catch(() => log.warn('startup broadcast failed (see error above)'));
 
